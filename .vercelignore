@@ -1,0 +1,9 @@
+node_modules
+apps/api
+apps/mobile
+packages
+services
+infrastructure
+pnpm-lock.yaml
+pnpm-workspace.yaml
+turbo.json
