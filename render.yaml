@@ -1,0 +1,31 @@
+services:
+  # Frontend — served as static site on Render
+  - type: web
+    name: caseconnect-web
+    runtime: static
+    rootDir: apps/web
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_OPENROUTER_API_KEY
+        sync: false
+      - key: VITE_AI_MODEL
+        value: google/gemma-4-26b-a4b-it:free
+
+  # API Gateway — Node.js service
+  - type: web
+    name: caseconnect-api
+    runtime: node
+    rootDir: apps/api
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
