@@ -1,0 +1,95 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REGISTRY: 123456789012.dkr.ecr.ap-south-1.amazonaws.com
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+
+jobs:
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - doctor-service
+          - hms-service
+          - patient-service
+          - student-service
+          - analytics-service
+          - voice-ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/caseconnect/${{ matrix.service }}:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/caseconnect/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update ECS services
+        run: |
+          SERVICES=("doctor-service" "hms-service" "patient-service" "student-service" "analytics-service" "voice-ai")
+          for SERVICE in "${SERVICES[@]}"; do
+            echo "Updating $SERVICE to image tag ${{ github.sha }}..."
+            # aws ecs update-service \
+            #   --cluster caseconnect-staging \
+            #   --service "$SERVICE" \
+            #   --force-new-deployment
+          done
+
+      - name: Wait for deployment stabilization
+        run: |
+          echo "Waiting for ECS services to stabilize..."
+          # aws ecs wait services-stable \
+          #   --cluster caseconnect-staging \
+          #   --services doctor-service hms-service patient-service student-service analytics-service voice-ai
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests against staging..."
+          # curl -f https://staging-api.caseconnect.example.com/health || exit 1
