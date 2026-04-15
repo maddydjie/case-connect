@@ -1,6 +1,21 @@
 {
-  "extends": "../../packages/config/tsconfig/react.json",
   "compilerOptions": {
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "noEmit": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
